@@ -14,7 +14,7 @@ const io = new Server(server, {
 
 // Serveur PeerJS pour WebRTC (port dynamique pour Render)
 const peerServer = PeerServer({
-  port: process.env.PEER_PORT || 9000,
+  port: process.env.PEER_PORT || 10000,
   path: '/peer',
 });
 
