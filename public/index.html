@@ -59,6 +59,8 @@
     video { width: 200px; margin: 5px; }
     #username-container { padding: 10px; background: #40444b; }
     #peer-id { padding: 10px; font-size: 14px; }
+    #user-list li { padding: 5px; cursor: pointer; }
+    #user-list li:hover { background: #4f545c; }
   </style>
 </head>
 <body>
@@ -72,7 +74,7 @@
     <h3>Utilisateurs</h3>
     <ul id="user-list"></ul>
     <div id="peer-id">Votre ID PeerJS: <span id="my-peer-id">Non connecté</span></div>
-    <button onclick="startVideoCall()">Démarrer Appel Vocal</button>
+    <button onclick="startVoiceCall()">Démarrer Appel Vocal</button>
   </div>
   <div id="chat">
     <div id="username-container">
@@ -91,18 +93,28 @@
   </div>
 
   <script>
-    const socket = io(); // Socket.IO se connecte automatiquement à l'URL du serveur
-    // Utiliser le serveur public PeerJS pour simplifier
-    const peer = new Peer({ host: 'peerjs.com', secure: true });
+    const socket = io();
+    const peer = new Peer({
+      host: 'peerjs.com',
+      secure: true,
+      config: {
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' }
+        ]
+      },
+      debug: 3 // Active les logs détaillés de PeerJS
+    });
     let currentChannel = 'general';
     let localStream;
     let username;
+    let myPeerId;
 
     // Définir le nom d'utilisateur
     function setUsername() {
       username = document.getElementById('username').value;
       if (username) {
-        socket.emit('setUsername', username);
+        socket.emit('setUsername', { username, peerId: myPeerId });
         document.getElementById('message').disabled = false;
         document.getElementById('message-input').querySelector('button').disabled = false;
         document.getElementById('username-container').style.display = 'none';
@@ -143,22 +155,28 @@
       messages.scrollTop = messages.scrollHeight;
     });
 
-    // Mettre à jour la liste des utilisateurs
+    // Mettre à jour la liste des utilisateurs avec leurs IDs PeerJS
     socket.on('userList', (userList) => {
       const userListElement = document.getElementById('user-list');
       userListElement.innerHTML = '';
       userList.forEach((user) => {
         const li = document.createElement('li');
-        li.textContent = user;
+        li.textContent = `${user.username} (ID: ${user.peerId || 'Non connecté'})`;
+        if (user.peerId && user.peerId !== myPeerId) {
+          li.style.cursor = 'pointer';
+          li.onclick = () => startVoiceCallWith(user.peerId);
+        }
         userListElement.appendChild(li);
       });
     });
 
     // Gestion des appels vocaux
     peer.on('open', (id) => {
+      myPeerId = id;
       console.log('Votre ID PeerJS:', id);
       document.getElementById('my-peer-id').textContent = id;
       alert(`Partagez cet ID avec vos amis: ${id}`);
+      socket.emit('setUsername', { username, peerId: id });
     });
 
     peer.on('error', (err) => {
@@ -166,7 +184,7 @@
       alert('Erreur de connexion PeerJS: ' + err.message);
     });
 
-    async function startVideoCall() {
+    async function startVoiceCall() {
       if (!username) {
         alert('Veuillez d\'abord entrer un nom d\'utilisateur');
         return;
@@ -175,22 +193,37 @@
         localStream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
         document.getElementById('local-video').srcObject = localStream;
         document.getElementById('video-container').style.display = 'block';
-
-        const remoteId = prompt('Entrez l\'ID PeerJS de votre ami:');
-        if (remoteId) {
-          const call = peer.call(remoteId, localStream);
-          call.on('stream', (remoteStream) => {
-            document.getElementById('remote-video').srcObject = remoteStream;
-          });
-          call.on('error', (err) => {
-            console.error('Erreur d\'appel:', err);
-            alert('Erreur lors de l\'appel: ' + err.message);
-          });
-        }
+        alert('Micro activé. Cliquez sur un utilisateur pour appeler ou partagez votre ID.');
       } catch (err) {
         console.error('Erreur lors de l\'accès au micro:', err);
         alert('Impossible d\'accéder au micro. Vérifiez les permissions ou branchez un micro.');
       }
+    }
+
+    async function startVoiceCallWith(remoteId) {
+      if (!username) {
+        alert('Veuillez d\'abord entrer un nom d\'utilisateur');
+        return;
+      }
+      if (!localStream) {
+        try {
+          localStream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
+          document.getElementById('local-video').srcObject = localStream;
+          document.getElementById('video-container').style.display = 'block';
+        } catch (err) {
+          console.error('Erreur lors de l\'accès au micro:', err);
+          alert('Impossible d\'accéder au micro. Vérifiez les permissions ou branchez un micro.');
+          return;
+        }
+      }
+      const call = peer.call(remoteId, localStream);
+      call.on('stream', (remoteStream) => {
+        document.getElementById('remote-video').srcObject = remoteStream;
+      });
+      call.on('error', (err) => {
+        console.error('Erreur d\'appel:', err);
+        alert('Erreur lors de l\'appel: ' + err.message);
+      });
     }
 
     peer.on('call', (call) => {
