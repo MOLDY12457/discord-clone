@@ -44,7 +44,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Clone de Discord Gratuit</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.0/socket.io.js"></script>
-  <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
   <style>
     body { font-family: Arial, sans-serif; margin: 0; display: flex; }
     #sidebar { width: 200px; background: #2f3136; color: white; height: 100vh; padding: 10px; }
@@ -100,10 +100,11 @@
       config: {
         iceServers: [
           { urls: 'stun:stun.l.google.com:19302' },
-          { urls: 'stun:stun1.l.google.com:19302' }
+          { urls: 'stun:stun1.l.google.com:19302' },
+          { urls: 'stun:stun.cloudflare.com:3478' }
         ]
       },
-      debug: 3 // Active les logs détaillés de PeerJS
+      debug: 3 // Logs détaillés
     });
     let currentChannel = 'general';
     let localStream;
@@ -182,6 +183,7 @@
     peer.on('error', (err) => {
       console.error('Erreur PeerJS:', err);
       alert('Erreur de connexion PeerJS: ' + err.message);
+      document.getElementById('my-peer-id').textContent = 'Erreur de connexion';
     });
 
     async function startVoiceCall() {
@@ -216,6 +218,7 @@
           return;
         }
       }
+      console.log('Appel de l\'ID:', remoteId);
       const call = peer.call(remoteId, localStream);
       call.on('stream', (remoteStream) => {
         document.getElementById('remote-video').srcObject = remoteStream;
