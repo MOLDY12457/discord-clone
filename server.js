@@ -13,10 +13,7 @@ const io = new Server(server, {
 });
 
 // Serveur PeerJS pour WebRTC (port dynamique pour Render)
-const peerServer = PeerServer({
-  port: process.env.PEER_PORT || 9000,
-  path: '/peer',
-});
+const peer = new Peer({ host: 'peerjs.com', secure: true });
 
 // Servir les fichiers statiques
 app.use(express.static('public'));
