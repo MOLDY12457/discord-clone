@@ -170,7 +170,7 @@
         return;
       }
       try {
-        localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        localStream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
         document.getElementById('local-video').srcObject = localStream;
         document.getElementById('video-container').style.display = 'block';
 
