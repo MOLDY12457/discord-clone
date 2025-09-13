@@ -1,0 +1,198 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clone de Discord Gratuit</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.0/socket.io.js"></script>
+  <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; display: flex; }
+    #sidebar { width: 200px; background: #2f3136; color: white; height: 100vh; padding: 10px; }
+    #chat { flex-grow: 1; background: #36393f; color: white; height: 100vh; display: flex; flex-direction: column; }
+    #messages { flex-grow: 1; overflow-y: auto; padding: 10px; }
+    #message-input { padding: 10px; background: #40444b; }
+    #message-input input { width: 80%; padding: 5px; }
+    #channels { list-style: none; padding: 0; }
+    #channels li { padding: 10px; cursor: pointer; }
+    #channels li:hover { background: #4f545c; }
+    #video-container { display: none; position: fixed; bottom: 10px; right: 10px; }
+    video { width: 200px; margin: 5px; }
+    #username-container { padding: 10px; background: #40444b; }
+  </style>
+</head>
+<body>
+  <div id="sidebar">
+    <h3>Salons</h3>
+    <ul id="channels">
+      <li onclick="joinChannel('general')">Général</li>
+      <li onclick="joinChannel('jeux')">Jeux</li>
+      <li onclick="joinChannel('musique')">Musique</li>
+    </ul>
+    <h3>Utilisateurs</h3>
+    <ul id="user-list"></ul>
+    <button onclick="startVideoCall()">Démarrer Appel Vidéo</button>
+  </div>
+  <div id="chat">
+    <div id="username-container">
+      <input type="text" id="username" placeholder="Entrez votre nom">
+      <button onclick="setUsername()">Confirmer</button>
+    </div>
+    <div id="messages"></div>
+    <div id="message-input">
+      <input type="text" id="message" placeholder="Tapez votre message..." disabled>
+      <button onclick="sendMessage()" disabled>Envoyer</button>
+    </div>
+    <div id="video-container">
+      <video id="local-video" autoplay muted></video>
+      <video id="remote-video" autoplay></video>
+    </div>
+  </div>
+
+  <script>
+    // Remplacez par l'URL de votre application Render (ex: https://votre-app.onrender.com)
+    const socket = io(); // Socket.IO détecte automatiquement l'URL du serveur
+    // Configuration PeerJS pour Render ou serveur public
+    const peer = new Peer({
+      host: window.location.hostname,
+      port: window.location.port || 443,
+      path: '/peer',
+      secure: true,
+    });
+    let currentChannel = 'general';
+    let localStream;
+    let username;
+
+    // Définir le nom d'utilisateur
+    function setUsername() {
+      username = document.getElementById('username').value;
+      if (username) {
+        socket.emit('setUsername', username);
+        document.getElementById('message').disabled = false;
+        document.getElementById('message-input').querySelector('button').disabled = false;
+        document.getElementById('username-container').style.display = 'none';
+      }
+    }
+
+    // Rejoindre un salon
+    function joinChannel(channel) {
+      if (!username) {
+        alert('Veuillez d\'abord entrer un nom d\'utilisateur');
+        return;
+      }
+      currentChannel = channel;
+      socket.emit('joinChannel', channel);
+      document.getElementById('messages').innerHTML = '';
+      alert(`Vous avez rejoint le salon: ${channel}`);
+    }
+
+    // Envoyer un message
+    function sendMessage() {
+      const messageInput = document.getElementById('message');
+      const message = messageInput.value;
+      if (message) {
+        socket.emit('chatMessage', {
+          message,
+          channel: currentChannel,
+        });
+        messageInput.value = '';
+      }
+    }
+
+    // Recevoir les messages
+    socket.on('chatMessage', (data) => {
+      const messages = document.getElementById('messages');
+      const messageElement = document.createElement('div');
+      messageElement.innerHTML = `<strong>${data.user} (${data.timestamp}):</strong> ${data.message}`;
+      messages.appendChild(messageElement);
+      messages.scrollTop = messages.scrollHeight;
+    });
+
+    // Mettre à jour la liste des utilisateurs
+    socket.on('userList', (userList) => {
+      const userListElement = document.getElementById('user-list');
+      userListElement.innerHTML = '';
+      userList.forEach((user) => {
+        const li = document.createElement('li');
+        li.textContent = user;
+        userListElement.appendChild(li);
+      });
+    });
+
+    // Gestion des appels vidéo
+    peer.on('open', (id) => {
+      console.log('Votre ID PeerJS:', id);
+      alert(`Partagez cet ID avec vos amis: ${id}`);
+    });
+
+    async function startVideoCall() {
+      if (!username) {
+        alert('Veuillez d\'abord entrer un nom d\'utilisateur');
+        return;
+      }
+      try {
+        localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        document.getElementById('local-video').srcObject = localStream;
+        document.getElementById('video-container').style.display = 'block';
+
+        const remoteId = prompt('Entrez l\'ID PeerJS de votre ami:');
+        if (remoteId) {
+          const call = peer.call(remoteId, localStream);
+          call.on('stream', (remoteStream) => {
+            document.getElementById('remote-video').srcObject = remoteStream;
+          });
+        }
+      } catch (err) {
+        console.error('Erreur lors de l\'accès à la caméra/micro:', err);
+        alert('Impossible d\'accéder à la caméra/micro. Vérifiez les permissions.');
+      }
+    }
+
+    peer.on('call', (call) => {
+      call.answer(localStream);
+      call.on('stream', (remoteStream) => {
+        document.getElementById('remote-video').srcObject = remoteStream;
+      });
+    });
+  </script>
+</body>
+</html>
