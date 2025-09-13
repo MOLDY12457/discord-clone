@@ -58,6 +58,7 @@
     #video-container { display: none; position: fixed; bottom: 10px; right: 10px; }
     video { width: 200px; margin: 5px; }
     #username-container { padding: 10px; background: #40444b; }
+    #peer-id { padding: 10px; font-size: 14px; }
   </style>
 </head>
 <body>
@@ -70,7 +71,8 @@
     </ul>
     <h3>Utilisateurs</h3>
     <ul id="user-list"></ul>
-    <button onclick="startVideoCall()">Démarrer Appel Vidéo</button>
+    <div id="peer-id">Votre ID PeerJS: <span id="my-peer-id">Non connecté</span></div>
+    <button onclick="startVideoCall()">Démarrer Appel Vocal</button>
   </div>
   <div id="chat">
     <div id="username-container">
@@ -89,15 +91,9 @@
   </div>
 
   <script>
-    // Remplacez par l'URL de votre application Render (ex: https://votre-app.onrender.com)
-    const socket = io(); // Socket.IO détecte automatiquement l'URL du serveur
-    // Configuration PeerJS pour Render ou serveur public
-    const peer = new Peer({
-      host: window.location.hostname,
-      port: window.location.port || 443,
-      path: '/peer',
-      secure: true,
-    });
+    const socket = io(); // Socket.IO se connecte automatiquement à l'URL du serveur
+    // Utiliser le serveur public PeerJS pour simplifier
+    const peer = new Peer({ host: 'peerjs.com', secure: true });
     let currentChannel = 'general';
     let localStream;
     let username;
@@ -158,10 +154,16 @@
       });
     });
 
-    // Gestion des appels vidéo
+    // Gestion des appels vocaux
     peer.on('open', (id) => {
       console.log('Votre ID PeerJS:', id);
+      document.getElementById('my-peer-id').textContent = id;
       alert(`Partagez cet ID avec vos amis: ${id}`);
+    });
+
+    peer.on('error', (err) => {
+      console.error('Erreur PeerJS:', err);
+      alert('Erreur de connexion PeerJS: ' + err.message);
     });
 
     async function startVideoCall() {
@@ -180,17 +182,29 @@
           call.on('stream', (remoteStream) => {
             document.getElementById('remote-video').srcObject = remoteStream;
           });
+          call.on('error', (err) => {
+            console.error('Erreur d\'appel:', err);
+            alert('Erreur lors de l\'appel: ' + err.message);
+          });
         }
       } catch (err) {
-        console.error('Erreur lors de l\'accès à la caméra/micro:', err);
-        alert('Impossible d\'accéder à la caméra/micro. Vérifiez les permissions.');
+        console.error('Erreur lors de l\'accès au micro:', err);
+        alert('Impossible d\'accéder au micro. Vérifiez les permissions ou branchez un micro.');
       }
     }
 
     peer.on('call', (call) => {
+      if (!localStream) {
+        alert('Démarrez un appel vocal avant de recevoir un appel.');
+        return;
+      }
       call.answer(localStream);
       call.on('stream', (remoteStream) => {
         document.getElementById('remote-video').srcObject = remoteStream;
+      });
+      call.on('error', (err) => {
+        console.error('Erreur d\'appel:', err);
+        alert('Erreur lors de l\'appel: ' + err.message);
       });
     });
   </script>
