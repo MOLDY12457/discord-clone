@@ -1,60 +1,53 @@
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
-const { PeerServer } = require('peer');
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: '*', // Permettre les connexions depuis n'importe quelle origine
+    origin: '*',
     methods: ['GET', 'POST'],
   },
 });
 
-// Serveur PeerJS pour WebRTC (port dynamique pour Render)
-const peer = new Peer({ host: 'peerjs.com', secure: true });
-
-// Servir les fichiers statiques
 app.use(express.static('public'));
 
-// Stockage des utilisateurs
 const users = {};
+const channels = {};
 
-// Gestion des connexions Socket.IO
 io.on('connection', (socket) => {
   console.log('Nouvel utilisateur connecté:', socket.id);
 
-  // Enregistrement du nom d'utilisateur
-  socket.on('setUsername', (username) => {
-    users[socket.id] = username;
+  socket.on('setUsername', ({ username, peerId }) => {
+    users[socket.id] = { username, peerId };
+    socket.emit('userList', Object.values(users));
     io.emit('userList', Object.values(users));
   });
 
-  // Réception et diffusion des messages
+  socket.on('joinChannel', (channel) => {
+    socket.join(channel);
+    channels[socket.id] = channel;
+    socket.emit('userList', Object.values(users));
+  });
+
   socket.on('chatMessage', (data) => {
+    const timestamp = new Date().toLocaleTimeString();
     io.to(data.channel).emit('chatMessage', {
-      user: users[socket.id] || 'Anonyme',
+      user: users[socket.id]?.username || 'Anonyme',
       message: data.message,
-      timestamp: new Date().toLocaleTimeString(),
+      timestamp,
     });
   });
 
-  // Rejoindre un salon
-  socket.on('joinChannel', (channel) => {
-    socket.join(channel);
-    console.log(`${users[socket.id] || socket.id} a rejoint le salon: ${channel}`);
-  });
-
-  // Gérer la déconnexion
   socket.on('disconnect', () => {
-    console.log('Utilisateur déconnecté:', users[socket.id] || socket.id);
+    console.log('Utilisateur déconnecté:', socket.id);
     delete users[socket.id];
+    delete channels[socket.id];
     io.emit('userList', Object.values(users));
   });
 });
 
-// Démarrer le serveur
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`Serveur démarré sur le port ${PORT}`);
