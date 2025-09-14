@@ -3,25 +3,173 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Clone de Discord Gratuit</title>
+  <title>Clone de Discord - Style Spotify</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.0/socket.io.js"></script>
   <script src="https://meet.jit.si/external_api.js"></script>
+  <link href="https://fonts.cdnfonts.com/css/proxima-nova-2" rel="stylesheet">
   <style>
-    body { font-family: Arial, sans-serif; margin: 0; display: flex; }
-    #sidebar { width: 200px; background: #2f3136; color: white; height: 100vh; padding: 10px; }
-    #chat { flex-grow: 1; background: #36393f; color: white; height: 100vh; display: flex; flex-direction: column; }
-    #messages { flex-grow: 1; overflow-y: auto; padding: 10px; }
-    #message-input { padding: 10px; background: #40444b; }
-    #message-input input { width: 80%; padding: 5px; }
-    #channels { list-style: none; padding: 0; }
-    #channels li { padding: 10px; cursor: pointer; }
-    #channels li:hover { background: #4f545c; }
-    #jitsi-container { display: none; position: fixed; bottom: 20px; right: 20px; width: 400px; height: 300px; background: #000; border: 2px solid #40444b; z-index: 1000; }
-    #jitsi-iframe { width: 100%; height: 100%; border: none; }
-    #close-jitsi { position: absolute; top: -30px; right: 0; background: red; color: white; border: none; padding: 5px 10px; cursor: pointer; z-index: 1001; }
-    #username-container { padding: 10px; background: #40444b; }
-    #user-list li { padding: 5px; cursor: pointer; }
-    #user-list li:hover { background: #4f545c; }
+    body {
+      font-family: 'Proxima Nova', sans-serif;
+      margin: 0;
+      display: flex;
+      background: #121212;
+      color: #fff;
+      overflow: hidden;
+    }
+    #sidebar {
+      width: 240px;
+      background: #000000;
+      height: 100vh;
+      padding: 20px;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    #sidebar h3 {
+      font-size: 16px;
+      color: #b3b3b3;
+      text-transform: uppercase;
+      margin: 10px 0;
+    }
+    #channels, #user-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    #channels li, #user-list li {
+      padding: 10px;
+      background: #181818;
+      margin: 5px 0;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+    }
+    #channels li:hover, #user-list li:hover {
+      background: #1DB954;
+      transform: translateX(5px);
+    }
+    #chat {
+      flex-grow: 1;
+      background: #181818;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    #username-container {
+      padding: 15px;
+      background: #121212;
+      border-bottom: 1px solid #282828;
+    }
+    #username-container input {
+      padding: 10px;
+      border: none;
+      border-radius: 4px;
+      background: #282828;
+      color: #fff;
+      width: 70%;
+      font-size: 14px;
+    }
+    #username-container button {
+      padding: 10px 20px;
+      background: #1DB954;
+      border: none;
+      border-radius: 4px;
+      color: #fff;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    #username-container button:hover {
+      background: #1ed760;
+    }
+    #messages {
+      flex-grow: 1;
+      overflow-y: auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    #messages div {
+      background: #282828;
+      padding: 10px 15px;
+      border-radius: 4px;
+      max-width: 80%;
+      word-wrap: break-word;
+    }
+    #message-input {
+      padding: 15px;
+      background: #121212;
+      border-top: 1px solid #282828;
+    }
+    #message-input input {
+      width: 80%;
+      padding: 10px;
+      border: none;
+      border-radius: 20px;
+      background: #282828;
+      color: #fff;
+      font-size: 14px;
+    }
+    #message-input button {
+      padding: 10px 20px;
+      background: #1DB954;
+      border: none;
+      border-radius: 20px;
+      color: #fff;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    #message-input button:hover {
+      background: #1ed760;
+    }
+    #jitsi-container {
+      display: none;
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      width: 400px;
+      height: 300px;
+      background: #000;
+      border: 2px solid #1DB954;
+      border-radius: 8px;
+      z-index: 1000;
+    }
+    #jitsi-iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      border-radius: 8px;
+    }
+    #close-jitsi {
+      position: absolute;
+      top: -30px;
+      right: 0;
+      background: #ff0000;
+      color: #fff;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      z-index: 1001;
+      transition: background 0.2s;
+    }
+    #close-jitsi:hover {
+      background: #cc0000;
+    }
+    #voice-call-button {
+      padding: 10px;
+      background: #1DB954;
+      border: none;
+      border-radius: 4px;
+      color: #fff;
+      cursor: pointer;
+      text-align: center;
+      transition: background 0.2s;
+    }
+    #voice-call-button:hover {
+      background: #1ed760;
+    }
   </style>
 </head>
 <body>
@@ -34,7 +182,7 @@
     </ul>
     <h3>Utilisateurs</h3>
     <ul id="user-list"></ul>
-    <button onclick="startVoiceCall()">Démarrer Appel Vocal</button>
+    <button id="voice-call-button" onclick="startVoiceCall()">Démarrer Appel Vocal</button>
   </div>
   <div id="chat">
     <div id="username-container">
