@@ -1,211 +1,205 @@
 <!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Clone de Discord Gratuit</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.0/socket.io.js"></script>
-  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 0; display: flex; }
-    #sidebar { width: 200px; background: #2f3136; color: white; height: 100vh; padding: 10px; }
-    #chat { flex-grow: 1; background: #36393f; color: white; height: 100vh; display: flex; flex-direction: column; }
-    #messages { flex-grow: 1; overflow-y: auto; padding: 10px; }
-    #message-input { padding: 10px; background: #40444b; }
-    #message-input input { width: 80%; padding: 5px; }
-    #channels { list-style: none; padding: 0; }
-    #channels li { padding: 10px; cursor: pointer; }
-    #channels li:hover { background: #4f545c; }
-    #video-container { display: none; position: fixed; bottom: 10px; right: 10px; }
-    video { width: 200px; margin: 5px; }
-    #username-container { padding: 10px; background: #40444b; }
-    #peer-id { padding: 10px; font-size: 14px; }
-    #user-list li { padding: 5px; cursor: pointer; }
-    #user-list li:hover { background: #4f545c; }
-  </style>
-</head>
-<body>
-  <div id="sidebar">
-    <h3>Salons</h3>
-    <ul id="channels">
-      <li onclick="joinChannel('general')">Général</li>
-      <li onclick="joinChannel('jeux')">Jeux</li>
-      <li onclick="joinChannel('musique')">Musique</li>
-    </ul>
-    <h3>Utilisateurs</h3>
-    <ul id="user-list"></ul>
-    <div id="peer-id">Votre ID PeerJS: <span id="my-peer-id">Non connecté</span></div>
-    <button onclick="startVoiceCall()">Démarrer Appel Vocal</button>
-  </div>
-  <div id="chat">
-    <div id="username-container">
-      <input type="text" id="username" placeholder="Entrez votre nom">
-      <button onclick="setUsername()">Confirmer</button>
-    </div>
-    <div id="messages"></div>
-    <div id="message-input">
-      <input type="text" id="message" placeholder="Tapez votre message..." disabled>
-      <button onclick="sendMessage()" disabled>Envoyer</button>
-    </div>
-    <div id="video-container">
-      <video id="local-video" autoplay muted></video>
-      <video id="remote-video" autoplay></video>
-    </div>
-  </div>
+   <html lang="fr">
+   <head>
+     <meta charset="UTF-8">
+     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+     <title>Clone de Discord Gratuit</title>
+     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.0/socket.io.js"></script>
+     <script src="https://unpkg.com/simple-peer@9.11.0/simplepeer.min.js"></script>
+     <style>
+       body { font-family: Arial, sans-serif; margin: 0; display: flex; }
+       #sidebar { width: 200px; background: #2f3136; color: white; height: 100vh; padding: 10px; }
+       #chat { flex-grow: 1; background: #36393f; color: white; height: 100vh; display: flex; flex-direction: column; }
+       #messages { flex-grow: 1; overflow-y: auto; padding: 10px; }
+       #message-input { padding: 10px; background: #40444b; }
+       #message-input input { width: 80%; padding: 5px; }
+       #channels { list-style: none; padding: 0; }
+       #channels li { padding: 10px; cursor: pointer; }
+       #channels li:hover { background: #4f545c; }
+       #video-container { display: none; position: fixed; bottom: 10px; right: 10px; }
+       video { width: 200px; margin: 5px; }
+       #username-container { padding: 10px; background: #40444b; }
+       #peer-id { padding: 10px; font-size: 14px; }
+       #user-list li { padding: 5px; cursor: pointer; }
+       #user-list li:hover { background: #4f545c; }
+     </style>
+   </head>
+   <body>
+     <div id="sidebar">
+       <h3>Salons</h3>
+       <ul id="channels">
+         <li onclick="joinChannel('general')">Général</li>
+         <li onclick="joinChannel('jeux')">Jeux</li>
+         <li onclick="joinChannel('musique')">Musique</li>
+       </ul>
+       <h3>Utilisateurs</h3>
+       <ul id="user-list"></ul>
+       <div id="peer-id">Votre ID: <span id="my-peer-id">Non connecté</span></div>
+       <button onclick="startVoiceCall()">Démarrer Appel Vocal</button>
+     </div>
+     <div id="chat">
+       <div id="username-container">
+         <input type="text" id="username" placeholder="Entrez votre nom">
+         <button onclick="setUsername()">Confirmer</button>
+       </div>
+       <div id="messages"></div>
+       <div id="message-input">
+         <input type="text" id="message" placeholder="Tapez votre message..." disabled>
+         <button onclick="sendMessage()" disabled>Envoyer</button>
+       </div>
+       <div id="video-container">
+         <video id="local-video" autoplay muted></video>
+         <video id="remote-video" autoplay></video>
+       </div>
+     </div>
 
-  <script>
-    const socket = io();
-    console.log('Tentative de connexion PeerJS à:', window.location.hostname + '/peer');
-    const peer = new Peer({
-      host: window.location.hostname,
-      path: '/peer',
-      secure: true,
-      config: {
-        iceServers: [
-          { urls: 'stun:stun.l.google.com:19302' },
-          { urls: 'stun:stun1.l.google.com:19302' },
-          { urls: 'stun:stun.cloudflare.com:3478' }
-        ]
-      },
-      debug: 3
-    });
-    let currentChannel = 'general';
-    let localStream;
-    let username;
-    let myPeerId;
+     <script>
+       const socket = io();
+       let peer = null;
+       let currentChannel = 'general';
+       let localStream;
+       let username;
+       let myPeerId = socket.id; // Utiliser socket.id comme ID unique
 
-    // Définir le nom d'utilisateur
-    function setUsername() {
-      username = document.getElementById('username').value;
-      if (username) {
-        socket.emit('setUsername', { username, peerId: myPeerId });
-        document.getElementById('message').disabled = false;
-        document.getElementById('message-input').querySelector('button').disabled = false;
-        document.getElementById('username-container').style.display = 'none';
-      }
-    }
+       // Définir le nom d'utilisateur
+       function setUsername() {
+         username = document.getElementById('username').value;
+         if (username) {
+           socket.emit('setUsername', { username, peerId: myPeerId });
+           document.getElementById('message').disabled = false;
+           document.getElementById('message-input').querySelector('button').disabled = false;
+           document.getElementById('username-container').style.display = 'none';
+           document.getElementById('my-peer-id').textContent = myPeerId;
+           alert(`Partagez cet ID avec vos amis: ${myPeerId}`);
+         }
+       }
 
-    // Rejoindre un salon
-    function joinChannel(channel) {
-      if (!username) {
-        alert('Veuillez d\'abord entrer un nom d\'utilisateur');
-        return;
-      }
-      currentChannel = channel;
-      socket.emit('joinChannel', channel);
-      document.getElementById('messages').innerHTML = '';
-      alert(`Vous avez rejoint le salon: ${channel}`);
-    }
+       // Rejoindre un salon
+       function joinChannel(channel) {
+         if (!username) {
+           alert('Veuillez d\'abord entrer un nom d\'utilisateur');
+           return;
+         }
+         currentChannel = channel;
+         socket.emit('joinChannel', channel);
+         document.getElementById('messages').innerHTML = '';
+         alert(`Vous avez rejoint le salon: ${channel}`);
+       }
 
-    // Envoyer un message
-    function sendMessage() {
-      const messageInput = document.getElementById('message');
-      const message = messageInput.value;
-      if (message) {
-        socket.emit('chatMessage', {
-          message,
-          channel: currentChannel,
-        });
-        messageInput.value = '';
-      }
-    }
+       // Envoyer un message
+       function sendMessage() {
+         const messageInput = document.getElementById('message');
+         const message = messageInput.value;
+         if (message) {
+           socket.emit('chatMessage', {
+             message,
+             channel: currentChannel,
+           });
+           messageInput.value = '';
+         }
+       }
 
-    // Recevoir les messages
-    socket.on('chatMessage', (data) => {
-      const messages = document.getElementById('messages');
-      const messageElement = document.createElement('div');
-      messageElement.innerHTML = `<strong>${data.user} (${data.timestamp}):</strong> ${data.message}`;
-      messages.appendChild(messageElement);
-      messages.scrollTop = messages.scrollHeight;
-    });
+       // Recevoir les messages
+       socket.on('chatMessage', (data) => {
+         const messages = document.getElementById('messages');
+         const messageElement = document.createElement('div');
+         messageElement.innerHTML = `<strong>${data.user} (${data.timestamp}):</strong> ${data.message}`;
+         messages.appendChild(messageElement);
+         messages.scrollTop = messages.scrollHeight;
+       });
 
-    // Mettre à jour la liste des utilisateurs avec leurs IDs PeerJS
-    socket.on('userList', (userList) => {
-      const userListElement = document.getElementById('user-list');
-      userListElement.innerHTML = '';
-      userList.forEach((user) => {
-        const li = document.createElement('li');
-        li.textContent = `${user.username} (ID: ${user.peerId || 'Non connecté'})`;
-        if (user.peerId && user.peerId !== myPeerId) {
-          li.style.cursor = 'pointer';
-          li.onclick = () => startVoiceCallWith(user.peerId);
-        }
-        userListElement.appendChild(li);
-      });
-    });
+       // Mettre à jour la liste des utilisateurs
+       socket.on('userList', (userList) => {
+         const userListElement = document.getElementById('user-list');
+         userListElement.innerHTML = '';
+         userList.forEach((user) => {
+           const li = document.createElement('li');
+           li.textContent = `${user.username} (ID: ${user.peerId || 'Non connecté'})`;
+           if (user.peerId && user.peerId !== myPeerId) {
+             li.style.cursor = 'pointer';
+             li.onclick = () => startVoiceCallWith(user.peerId);
+           }
+           userListElement.appendChild(li);
+         });
+       });
 
-    // Gestion des appels vocaux
-    peer.on('open', (id) => {
-      myPeerId = id;
-      console.log('Votre ID PeerJS:', id);
-      document.getElementById('my-peer-id').textContent = id;
-      alert(`Partagez cet ID avec vos amis: ${id}`);
-      socket.emit('setUsername', { username, peerId: id });
-    });
+       // Gestion des appels vocaux
+       async function startVoiceCall() {
+         if (!username) {
+           alert('Veuillez d\'abord entrer un nom d\'utilisateur');
+           return;
+         }
+         try {
+           localStream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
+           document.getElementById('local-video').srcObject = localStream;
+           document.getElementById('video-container').style.display = 'block';
+           alert('Micro activé. Cliquez sur un utilisateur pour appeler ou partagez votre ID.');
+         } catch (err) {
+           console.error('Erreur lors de l\'accès au micro:', err);
+           alert('Impossible d\'accéder au micro. Vérifiez les permissions ou branchez un micro.');
+         }
+       }
 
-    peer.on('error', (err) => {
-      console.error('Erreur PeerJS:', err);
-      alert('Erreur de connexion PeerJS: ' + err.message);
-      document.getElementById('my-peer-id').textContent = 'Erreur de connexion';
-    });
+       async function startVoiceCallWith(remoteId) {
+         if (!username) {
+           alert('Veuillez d\'abord entrer un nom d\'utilisateur');
+           return;
+         }
+         if (!localStream) {
+           try {
+             localStream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
+             document.getElementById('local-video').srcObject = localStream;
+             document.getElementById('video-container').style.display = 'block';
+           } catch (err) {
+             console.error('Erreur lors de l\'accès au micro:', err);
+             alert('Impossible d\'accéder au micro. Vérifiez les permissions ou branchez un micro.');
+             return;
+           }
+         }
+         console.log('Démarrage appel avec:', remoteId);
+         peer = new SimplePeer({
+           initiator: true,
+           trickle: false,
+           stream: localStream
+         });
 
-    async function startVoiceCall() {
-      if (!username) {
-        alert('Veuillez d\'abord entrer un nom d\'utilisateur');
-        return;
-      }
-      try {
-        localStream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
-        document.getElementById('local-video').srcObject = localStream;
-        document.getElementById('video-container').style.display = 'block';
-        alert('Micro activé. Cliquez sur un utilisateur pour appeler ou partagez votre ID.');
-      } catch (err) {
-        console.error('Erreur lors de l\'accès au micro:', err);
-        alert('Impossible d\'accès au micro. Vérifiez les permissions ou branchez un micro.');
-      }
-    }
+         peer.on('signal', (data) => {
+           socket.emit('signal', { to: remoteId, signal: data });
+         });
 
-    async function startVoiceCallWith(remoteId) {
-      if (!username) {
-        alert('Veuillez d\'abord entrer un nom d\'utilisateur');
-        return;
-      }
-      if (!localStream) {
-        try {
-          localStream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
-          document.getElementById('local-video').srcObject = localStream;
-          document.getElementById('video-container').style.display = 'block';
-        } catch (err) {
-          console.error('Erreur lors de l\'accès au micro:', err);
-          alert('Impossible d\'accès au micro. Vérifiez les permissions ou branchez un micro.');
-          return;
-        }
-      }
-      console.log('Appel de l\'ID:', remoteId);
-      const call = peer.call(remoteId, localStream);
-      call.on('stream', (remoteStream) => {
-        document.getElementById('remote-video').srcObject = remoteStream;
-      });
-      call.on('error', (err) => {
-        console.error('Erreur d\'appel:', err);
-        alert('Erreur lors de l\'appel: ' + err.message);
-      });
-    }
+         peer.on('stream', (remoteStream) => {
+           document.getElementById('remote-video').srcObject = remoteStream;
+         });
 
-    peer.on('call', (call) => {
-      if (!localStream) {
-        alert('Démarrez un appel vocal avant de recevoir un appel.');
-        return;
-      }
-      call.answer(localStream);
-      call.on('stream', (remoteStream) => {
-        document.getElementById('remote-video').srcObject = remoteStream;
-      });
-      call.on('error', (err) => {
-        console.error('Erreur d\'appel:', err);
-        alert('Erreur lors de l\'appel: ' + err.message);
-      });
-    });
-  </script>
-</body>
-</html>
+         peer.on('error', (err) => {
+           console.error('Erreur SimplePeer:', err);
+           alert('Erreur lors de l\'appel: ' + err.message);
+         });
+       }
+
+       socket.on('signal', (data) => {
+         if (!peer) {
+           peer = new SimplePeer({
+             initiator: false,
+             trickle: false,
+             stream: localStream
+           });
+
+           peer.on('signal', (signalData) => {
+             socket.emit('signal', { to: data.from, signal: signalData });
+           });
+
+           peer.on('stream', (remoteStream) => {
+             document.getElementById('remote-video').srcObject = remoteStream;
+           });
+
+           peer.on('error', (err) => {
+             console.error('Erreur SimplePeer:', err);
+             alert('Erreur lors de l\'appel: ' + err.message);
+           });
+         }
+         peer.signal(data.signal);
+       });
+     </script>
+   </body>
+   </html>
