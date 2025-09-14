@@ -73,6 +73,30 @@
       ] 
     };
 
+    // Chargement et réinitialisation des messages
+    function loadMessages() {
+      const storedMessages = localStorage.getItem('chatMessages');
+      const lastReset = localStorage.getItem('lastReset');
+      const now = new Date().getTime();
+      const resetInterval = 5 * 24 * 60 * 60 * 1000; // 5 jours en millisecondes
+
+      if (lastReset && (now - lastReset > resetInterval)) {
+        localStorage.setItem('chatMessages', JSON.stringify([]));
+        localStorage.setItem('lastReset', now);
+        document.getElementById('messages').innerHTML = '';
+      } else if (!lastReset) {
+        localStorage.setItem('lastReset', now);
+      }
+
+      return storedMessages ? JSON.parse(storedMessages) : [];
+    }
+
+    function saveMessage(msg) {
+      const messages = loadMessages();
+      messages.push(msg);
+      localStorage.setItem('chatMessages', JSON.stringify(messages));
+    }
+
     function joinChat() {
       console.log('joinChat appelé');
       username = document.getElementById('username').value;
@@ -82,7 +106,7 @@
         return;
       }
       console.log('Connexion à Socket.IO avec pseudo:', username);
-      socket = io('https://discord-gmail-backend-1.onrender.com', { 
+      socket = io('http://localhost:3000', { 
         query: { username },
         transports: ['websocket', 'polling'],
         timeout: 20000
@@ -93,7 +117,7 @@
         document.getElementById('username').disabled = true;
         document.getElementById('callButton').disabled = false;
         document.getElementById('screenShareButton').disabled = false;
-        socket.emit('loadMessages');
+        loadMessages().forEach(displayMessage);
       });
       
       socket.on('connect_error', (error) => {
@@ -110,13 +134,9 @@
         updateUsers(users);
       });
       
-      socket.on('messages', (messages) => {
-        console.log('Messages chargés:', messages);
-        messages.forEach(displayMessage);
-      });
-      
       socket.on('message', (msg) => {
         console.log('Message reçu:', msg);
+        saveMessage(msg); // Sauvegarde dans localStorage
         displayMessage(msg);
       });
       
@@ -170,6 +190,7 @@
       if (message) {
         console.log('Envoi message général:', message);
         socket.emit('message', { from: username, text: message });
+        saveMessage({ from: username, text: message }); // Sauvegarde localement
         displayMessage({ from: username, text: message });
         document.getElementById('message').value = '';
       } else {
