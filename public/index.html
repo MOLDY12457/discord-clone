@@ -44,7 +44,7 @@
     <div id="messages"></div>
     <div id="message-input">
       <input type="text" id="message" placeholder="Tapez votre message..." disabled>
-      <button onclick="sendMessage()" disabled>Envoyer</button>
+      <button onclick="sendMessage()">Envoyer</button>
     </div>
   </div>
 
@@ -89,7 +89,7 @@
     // Envoyer un message
     function sendMessage() {
       const messageInput = document.getElementById('message');
-      const message = messageInput.value;
+      const message = messageInput.value.trim();
       if (message) {
         socket.emit('chatMessage', {
           message,
@@ -99,12 +99,31 @@
       }
     }
 
+    // Gérer la touche Entrée
+    document.getElementById('message').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        sendMessage();
+      }
+    });
+
     // Recevoir les messages
     socket.on('chatMessage', (data) => {
       const messages = document.getElementById('messages');
       const messageElement = document.createElement('div');
       messageElement.innerHTML = `<strong>${data.user} (${data.timestamp}):</strong> ${data.message}`;
       messages.appendChild(messageElement);
+      messages.scrollTop = messages.scrollHeight;
+    });
+
+    // Recevoir l'historique des messages
+    socket.on('messageHistory', (history) => {
+      const messages = document.getElementById('messages');
+      messages.innerHTML = '';
+      history.forEach((data) => {
+        const messageElement = document.createElement('div');
+        messageElement.innerHTML = `<strong>${data.user} (${data.timestamp}):</strong> ${data.message}`;
+        messages.appendChild(messageElement);
+      });
       messages.scrollTop = messages.scrollHeight;
     });
 
@@ -132,7 +151,6 @@
         api.dispose();
         api = null;
       }
-      // Créer un nom de salle unique basé sur les deux IDs (ordonné pour éviter les doublons)
       const ids = [myUserId, remoteId].sort();
       const roomName = `discord-call-${ids[0]}-${ids[1]}`;
       const domain = 'meet.jit.si';
@@ -161,7 +179,7 @@
       };
       api = new JitsiMeetExternalAPI(domain, options);
       document.getElementById('jitsi-container').style.display = 'block';
-      socket.emit('joinJitsiCall', { remoteId, roomName }); // Notifier l'autre utilisateur
+      socket.emit('joinJitsiCall', { remoteId, roomName });
     }
 
     // Fermer l'appel Jitsi
