@@ -15,6 +15,11 @@ app.use(express.static('public'));
 
 const users = {};
 const channels = {};
+const messages = { // Stockage des messages par salon
+  general: [],
+  jeux: [],
+  musique: []
+};
 
 io.on('connection', (socket) => {
   console.log('Nouvel utilisateur connecté:', socket.id);
@@ -29,15 +34,21 @@ io.on('connection', (socket) => {
     socket.join(channel);
     channels[socket.id] = channel;
     socket.emit('userList', Object.values(users));
+    // Envoyer l'historique des messages du salon
+    socket.emit('messageHistory', messages[channel] || []);
   });
 
   socket.on('chatMessage', (data) => {
     const timestamp = new Date().toLocaleTimeString();
-    io.to(data.channel).emit('chatMessage', {
+    const messageData = {
       user: users[socket.id]?.username || 'Anonyme',
       message: data.message,
       timestamp,
-    });
+    };
+    // Sauvegarder le message dans le salon
+    if (!messages[data.channel]) messages[data.channel] = [];
+    messages[data.channel].push(messageData);
+    io.to(data.channel).emit('chatMessage', messageData);
   });
 
   socket.on('joinJitsiCall', (data) => {
