@@ -1,6 +1,7 @@
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
+const { PeerServer } = require('peer');
 
 const app = express();
 const server = http.createServer(app);
@@ -9,6 +10,12 @@ const io = new Server(server, {
     origin: '*',
     methods: ['GET', 'POST'],
   },
+});
+
+// Configurer PeerServer sur le même port que l'application
+const peerServer = PeerServer({
+  path: '/peer',
+  proxied: true // Nécessaire pour Render
 });
 
 app.use(express.static('public'));
