@@ -1,205 +1,186 @@
 <!DOCTYPE html>
-   <html lang="fr">
-   <head>
-     <meta charset="UTF-8">
-     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-     <title>Clone de Discord Gratuit</title>
-     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.0/socket.io.js"></script>
-     <script src="https://unpkg.com/simple-peer@9.11.0/simplepeer.min.js"></script>
-     <style>
-       body { font-family: Arial, sans-serif; margin: 0; display: flex; }
-       #sidebar { width: 200px; background: #2f3136; color: white; height: 100vh; padding: 10px; }
-       #chat { flex-grow: 1; background: #36393f; color: white; height: 100vh; display: flex; flex-direction: column; }
-       #messages { flex-grow: 1; overflow-y: auto; padding: 10px; }
-       #message-input { padding: 10px; background: #40444b; }
-       #message-input input { width: 80%; padding: 5px; }
-       #channels { list-style: none; padding: 0; }
-       #channels li { padding: 10px; cursor: pointer; }
-       #channels li:hover { background: #4f545c; }
-       #video-container { display: none; position: fixed; bottom: 10px; right: 10px; }
-       video { width: 200px; margin: 5px; }
-       #username-container { padding: 10px; background: #40444b; }
-       #peer-id { padding: 10px; font-size: 14px; }
-       #user-list li { padding: 5px; cursor: pointer; }
-       #user-list li:hover { background: #4f545c; }
-     </style>
-   </head>
-   <body>
-     <div id="sidebar">
-       <h3>Salons</h3>
-       <ul id="channels">
-         <li onclick="joinChannel('general')">Général</li>
-         <li onclick="joinChannel('jeux')">Jeux</li>
-         <li onclick="joinChannel('musique')">Musique</li>
-       </ul>
-       <h3>Utilisateurs</h3>
-       <ul id="user-list"></ul>
-       <div id="peer-id">Votre ID: <span id="my-peer-id">Non connecté</span></div>
-       <button onclick="startVoiceCall()">Démarrer Appel Vocal</button>
-     </div>
-     <div id="chat">
-       <div id="username-container">
-         <input type="text" id="username" placeholder="Entrez votre nom">
-         <button onclick="setUsername()">Confirmer</button>
-       </div>
-       <div id="messages"></div>
-       <div id="message-input">
-         <input type="text" id="message" placeholder="Tapez votre message..." disabled>
-         <button onclick="sendMessage()" disabled>Envoyer</button>
-       </div>
-       <div id="video-container">
-         <video id="local-video" autoplay muted></video>
-         <video id="remote-video" autoplay></video>
-       </div>
-     </div>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clone de Discord Gratuit</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.0/socket.io.js"></script>
+  <script src="https://meet.jit.si/external_api.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; display: flex; }
+    #sidebar { width: 200px; background: #2f3136; color: white; height: 100vh; padding: 10px; }
+    #chat { flex-grow: 1; background: #36393f; color: white; height: 100vh; display: flex; flex-direction: column; }
+    #messages { flex-grow: 1; overflow-y: auto; padding: 10px; }
+    #message-input { padding: 10px; background: #40444b; }
+    #message-input input { width: 80%; padding: 5px; }
+    #channels { list-style: none; padding: 0; }
+    #channels li { padding: 10px; cursor: pointer; }
+    #channels li:hover { background: #4f545c; }
+    #jitsi-container { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.9); z-index: 1000; }
+    #jitsi-iframe { width: 80%; height: 80%; margin: 10vh auto; border: none; }
+    #close-jitsi { position: absolute; top: 10px; right: 10px; background: red; color: white; border: none; padding: 10px; cursor: pointer; z-index: 1001; }
+    #username-container { padding: 10px; background: #40444b; }
+    #user-list li { padding: 5px; cursor: pointer; }
+    #user-list li:hover { background: #4f545c; }
+  </style>
+</head>
+<body>
+  <div id="sidebar">
+    <h3>Salons</h3>
+    <ul id="channels">
+      <li onclick="joinChannel('general')">Général</li>
+      <li onclick="joinChannel('jeux')">Jeux</li>
+      <li onclick="joinChannel('musique')">Musique</li>
+    </ul>
+    <h3>Utilisateurs</h3>
+    <ul id="user-list"></ul>
+    <button onclick="startVoiceCall()">Démarrer Appel Vocal</button>
+  </div>
+  <div id="chat">
+    <div id="username-container">
+      <input type="text" id="username" placeholder="Entrez votre nom">
+      <button onclick="setUsername()">Confirmer</button>
+    </div>
+    <div id="messages"></div>
+    <div id="message-input">
+      <input type="text" id="message" placeholder="Tapez votre message..." disabled>
+      <button onclick="sendMessage()" disabled>Envoyer</button>
+    </div>
+  </div>
 
-     <script>
-       const socket = io();
-       let peer = null;
-       let currentChannel = 'general';
-       let localStream;
-       let username;
-       let myPeerId = socket.id; // Utiliser socket.id comme ID unique
+  <!-- Conteneur pour Jitsi Meet -->
+  <div id="jitsi-container">
+    <button id="close-jitsi" onclick="closeJitsi()">Fermer l'appel</button>
+    <iframe id="jitsi-iframe" allow="camera; microphone; fullscreen; display-capture" allowfullscreen></iframe>
+  </div>
 
-       // Définir le nom d'utilisateur
-       function setUsername() {
-         username = document.getElementById('username').value;
-         if (username) {
-           socket.emit('setUsername', { username, peerId: myPeerId });
-           document.getElementById('message').disabled = false;
-           document.getElementById('message-input').querySelector('button').disabled = false;
-           document.getElementById('username-container').style.display = 'none';
-           document.getElementById('my-peer-id').textContent = myPeerId;
-           alert(`Partagez cet ID avec vos amis: ${myPeerId}`);
-         }
-       }
+  <script>
+    const socket = io();
+    let currentChannel = 'general';
+    let username;
+    let myUserId = null; // ID unique pour l'utilisateur (généré ou socket.id)
+    let api = null; // Instance Jitsi API
 
-       // Rejoindre un salon
-       function joinChannel(channel) {
-         if (!username) {
-           alert('Veuillez d\'abord entrer un nom d\'utilisateur');
-           return;
-         }
-         currentChannel = channel;
-         socket.emit('joinChannel', channel);
-         document.getElementById('messages').innerHTML = '';
-         alert(`Vous avez rejoint le salon: ${channel}`);
-       }
+    // Définir le nom d'utilisateur
+    function setUsername() {
+      username = document.getElementById('username').value;
+      if (username) {
+        myUserId = username.toLowerCase().replace(/\s+/g, '-'); // ID simple basé sur le nom
+        socket.emit('setUsername', { username, peerId: myUserId });
+        document.getElementById('message').disabled = false;
+        document.getElementById('message-input').querySelector('button').disabled = false;
+        document.getElementById('username-container').style.display = 'none';
+        alert(`Votre ID pour les appels: ${myUserId}`);
+      }
+    }
 
-       // Envoyer un message
-       function sendMessage() {
-         const messageInput = document.getElementById('message');
-         const message = messageInput.value;
-         if (message) {
-           socket.emit('chatMessage', {
-             message,
-             channel: currentChannel,
-           });
-           messageInput.value = '';
-         }
-       }
+    // Rejoindre un salon
+    function joinChannel(channel) {
+      if (!username) {
+        alert('Veuillez d\'abord entrer un nom d\'utilisateur');
+        return;
+      }
+      currentChannel = channel;
+      socket.emit('joinChannel', channel);
+      document.getElementById('messages').innerHTML = '';
+      alert(`Vous avez rejoint le salon: ${channel}`);
+    }
 
-       // Recevoir les messages
-       socket.on('chatMessage', (data) => {
-         const messages = document.getElementById('messages');
-         const messageElement = document.createElement('div');
-         messageElement.innerHTML = `<strong>${data.user} (${data.timestamp}):</strong> ${data.message}`;
-         messages.appendChild(messageElement);
-         messages.scrollTop = messages.scrollHeight;
-       });
+    // Envoyer un message
+    function sendMessage() {
+      const messageInput = document.getElementById('message');
+      const message = messageInput.value;
+      if (message) {
+        socket.emit('chatMessage', {
+          message,
+          channel: currentChannel,
+        });
+        messageInput.value = '';
+      }
+    }
 
-       // Mettre à jour la liste des utilisateurs
-       socket.on('userList', (userList) => {
-         const userListElement = document.getElementById('user-list');
-         userListElement.innerHTML = '';
-         userList.forEach((user) => {
-           const li = document.createElement('li');
-           li.textContent = `${user.username} (ID: ${user.peerId || 'Non connecté'})`;
-           if (user.peerId && user.peerId !== myPeerId) {
-             li.style.cursor = 'pointer';
-             li.onclick = () => startVoiceCallWith(user.peerId);
-           }
-           userListElement.appendChild(li);
-         });
-       });
+    // Recevoir les messages
+    socket.on('chatMessage', (data) => {
+      const messages = document.getElementById('messages');
+      const messageElement = document.createElement('div');
+      messageElement.innerHTML = `<strong>${data.user} (${data.timestamp}):</strong> ${data.message}`;
+      messages.appendChild(messageElement);
+      messages.scrollTop = messages.scrollHeight;
+    });
 
-       // Gestion des appels vocaux
-       async function startVoiceCall() {
-         if (!username) {
-           alert('Veuillez d\'abord entrer un nom d\'utilisateur');
-           return;
-         }
-         try {
-           localStream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
-           document.getElementById('local-video').srcObject = localStream;
-           document.getElementById('video-container').style.display = 'block';
-           alert('Micro activé. Cliquez sur un utilisateur pour appeler ou partagez votre ID.');
-         } catch (err) {
-           console.error('Erreur lors de l\'accès au micro:', err);
-           alert('Impossible d\'accéder au micro. Vérifiez les permissions ou branchez un micro.');
-         }
-       }
+    // Mettre à jour la liste des utilisateurs
+    socket.on('userList', (userList) => {
+      const userListElement = document.getElementById('user-list');
+      userListElement.innerHTML = '';
+      userList.forEach((user) => {
+        const li = document.createElement('li');
+        li.textContent = user.username;
+        li.onclick = () => startJitsiCall(user.peerId);
+        userListElement.appendChild(li);
+      });
+    });
 
-       async function startVoiceCallWith(remoteId) {
-         if (!username) {
-           alert('Veuillez d\'abord entrer un nom d\'utilisateur');
-           return;
-         }
-         if (!localStream) {
-           try {
-             localStream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
-             document.getElementById('local-video').srcObject = localStream;
-             document.getElementById('video-container').style.display = 'block';
-           } catch (err) {
-             console.error('Erreur lors de l\'accès au micro:', err);
-             alert('Impossible d\'accéder au micro. Vérifiez les permissions ou branchez un micro.');
-             return;
-           }
-         }
-         console.log('Démarrage appel avec:', remoteId);
-         peer = new SimplePeer({
-           initiator: true,
-           trickle: false,
-           stream: localStream
-         });
+    // Démarrer un appel vocal avec Jitsi Meet
+    function startJitsiCall(remoteId) {
+      if (!username) {
+        alert('Veuillez d\'abord entrer un nom d\'utilisateur');
+        return;
+      }
+      // Créer un nom de salle unique basé sur les deux IDs
+      const roomName = `discord-call-${myUserId}-${remoteId}`;
+      const domain = 'meet.jit.si';
+      const options = {
+        roomName: roomName,
+        width: '80%',
+        height: '80%',
+        parentNode: document.getElementById('jitsi-iframe'),
+        userInfo: {
+          displayName: username
+        },
+        configOverwrite: {
+          startWithAudioMuted: false,
+          disableModeratorIndicator: true
+        },
+        interfaceConfigOverwrite: {
+          filmStripOnly: false,
+          TOOLBAR_BUTTONS: [
+            'microphone', 'camera', 'closedcaptions', 'desktop', 'fullscreen',
+            'fodeviceselection', 'hangup', 'profile', 'chat', 'recording',
+            'livestreaming', 'etherpad', 'sharedvideo', 'shareaudio', 'settings', 'raisehand',
+            'videoquality', 'shortcuts', 'tileview', 'select-layout', 'help'
+          ]
+        },
+        lang: 'fr'
+      };
+      api = new JitsiMeetExternalAPI(domain, options);
+      document.getElementById('jitsi-container').style.display = 'block';
+      alert(`Appel lancé dans la salle: ${roomName}. Partagez ce lien avec votre ami: https://meet.jit.si/${roomName}`);
+    }
 
-         peer.on('signal', (data) => {
-           socket.emit('signal', { to: remoteId, signal: data });
-         });
+    function closeJitsi() {
+      if (api) {
+        api.dispose();
+        api = null;
+      }
+      document.getElementById('jitsi-container').style.display = 'none';
+    }
 
-         peer.on('stream', (remoteStream) => {
-           document.getElementById('remote-video').srcObject = remoteStream;
-         });
-
-         peer.on('error', (err) => {
-           console.error('Erreur SimplePeer:', err);
-           alert('Erreur lors de l\'appel: ' + err.message);
-         });
-       }
-
-       socket.on('signal', (data) => {
-         if (!peer) {
-           peer = new SimplePeer({
-             initiator: false,
-             trickle: false,
-             stream: localStream
-           });
-
-           peer.on('signal', (signalData) => {
-             socket.emit('signal', { to: data.from, signal: signalData });
-           });
-
-           peer.on('stream', (remoteStream) => {
-             document.getElementById('remote-video').srcObject = remoteStream;
-           });
-
-           peer.on('error', (err) => {
-             console.error('Erreur SimplePeer:', err);
-             alert('Erreur lors de l\'appel: ' + err.message);
-           });
-         }
-         peer.signal(data.signal);
-       });
-     </script>
-   </body>
-   </html>
+    // Démarrer l'appel vocal (prépare le micro, mais utilise Jitsi pour l'appel)
+    async function startVoiceCall() {
+      if (!username) {
+        alert('Veuillez d\'abord entrer un nom d\'utilisateur');
+        return;
+      }
+      try {
+        // Test d'accès au micro (optionnel, Jitsi gère cela)
+        const stream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
+        stream.getTracks().forEach(track => track.stop()); // Arrêter le stream après test
+        alert('Micro prêt. Cliquez sur un utilisateur pour lancer l\'appel avec Jitsi.');
+      } catch (err) {
+        console.error('Erreur lors de l\'accès au micro:', err);
+        alert('Impossible d\'accéder au micro. Vérifiez les permissions ou branchez un micro.');
+      }
+    }
+  </script>
+</body>
+</html>
