@@ -49,6 +49,19 @@
       background: #1DB954;
       transform: translateX(5px);
     }
+    #add-channel-button {
+      padding: 10px;
+      background: #1DB954;
+      border: none;
+      border-radius: 4px;
+      color: #fff;
+      cursor: pointer;
+      text-align: center;
+      transition: background 0.2s;
+    }
+    #add-channel-button:hover {
+      background: #1ed760;
+    }
     #chat {
       flex-grow: 1;
       background: #181818;
@@ -180,6 +193,7 @@
       <li onclick="joinChannel('jeux')">Jeux</li>
       <li onclick="joinChannel('musique')">Musique</li>
     </ul>
+    <button id="add-channel-button" onclick="addChannel()">Ajouter un salon</button>
     <h3>Utilisateurs</h3>
     <ul id="user-list"></ul>
     <button id="voice-call-button" onclick="startVoiceCall()">Démarrer Appel Vocal</button>
@@ -219,6 +233,19 @@
         document.getElementById('message-input').querySelector('button').disabled = false;
         document.getElementById('username-container').style.display = 'none';
         alert(`Votre ID pour les appels: ${myUserId}`);
+      }
+    }
+
+    // Ajouter un nouveau salon
+    function addChannel() {
+      if (!username) {
+        alert('Veuillez d\'abord entrer un nom d\'utilisateur');
+        return;
+      }
+      const channelName = prompt('Entrez le nom du nouveau salon:');
+      if (channelName && channelName.trim()) {
+        const sanitizedChannel = channelName.trim().toLowerCase().replace(/\s+/g, '-');
+        socket.emit('addChannel', sanitizedChannel);
       }
     }
 
@@ -273,6 +300,18 @@
         messages.appendChild(messageElement);
       });
       messages.scrollTop = messages.scrollHeight;
+    });
+
+    // Mettre à jour la liste des salons
+    socket.on('channelList', (channelList) => {
+      const channelsElement = document.getElementById('channels');
+      channelsElement.innerHTML = '';
+      channelList.forEach((channel) => {
+        const li = document.createElement('li');
+        li.textContent = channel;
+        li.onclick = () => joinChannel(channel);
+        channelsElement.appendChild(li);
+      });
     });
 
     // Mettre à jour la liste des utilisateurs
