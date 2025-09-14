@@ -82,7 +82,7 @@
         return;
       }
       console.log('Connexion à Socket.IO avec pseudo:', username);
-      socket = io('http://localhost:3000', { 
+      socket = io('https://discord-gmail-backend-1.onrender.com', { 
         query: { username },
         transports: ['websocket', 'polling'],
         timeout: 20000
