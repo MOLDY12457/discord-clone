@@ -12,10 +12,11 @@ const io = new Server(server, {
   },
 });
 
-// Configurer PeerServer sur le même port que l'application
 const peerServer = PeerServer({
   path: '/peer',
-  proxied: true // Nécessaire pour Render
+  proxied: true
+}, () => {
+  console.log('PeerServer démarré sur le chemin /peer');
 });
 
 app.use(express.static('public'));
