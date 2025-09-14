@@ -16,9 +16,9 @@
     #channels { list-style: none; padding: 0; }
     #channels li { padding: 10px; cursor: pointer; }
     #channels li:hover { background: #4f545c; }
-    #jitsi-container { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.9); z-index: 1000; }
-    #jitsi-iframe { width: 80%; height: 80%; margin: 10vh auto; border: none; }
-    #close-jitsi { position: absolute; top: 10px; right: 10px; background: red; color: white; border: none; padding: 10px; cursor: pointer; z-index: 1001; }
+    #jitsi-container { display: none; position: fixed; bottom: 20px; right: 20px; width: 400px; height: 300px; background: #000; border: 2px solid #40444b; z-index: 1000; }
+    #jitsi-iframe { width: 100%; height: 100%; border: none; }
+    #close-jitsi { position: absolute; top: -30px; right: 0; background: red; color: white; border: none; padding: 5px 10px; cursor: pointer; z-index: 1001; }
     #username-container { padding: 10px; background: #40444b; }
     #user-list li { padding: 5px; cursor: pointer; }
     #user-list li:hover { background: #4f545c; }
@@ -51,21 +51,21 @@
   <!-- Conteneur pour Jitsi Meet -->
   <div id="jitsi-container">
     <button id="close-jitsi" onclick="closeJitsi()">Fermer l'appel</button>
-    <iframe id="jitsi-iframe" allow="camera; microphone; fullscreen; display-capture" allowfullscreen></iframe>
+    <div id="jitsi-iframe"></div>
   </div>
 
   <script>
     const socket = io();
     let currentChannel = 'general';
     let username;
-    let myUserId = null; // ID unique pour l'utilisateur (généré ou socket.id)
-    let api = null; // Instance Jitsi API
+    let myUserId = null;
+    let api = null;
 
     // Définir le nom d'utilisateur
     function setUsername() {
       username = document.getElementById('username').value;
       if (username) {
-        myUserId = username.toLowerCase().replace(/\s+/g, '-'); // ID simple basé sur le nom
+        myUserId = username.toLowerCase().replace(/\s+/g, '-');
         socket.emit('setUsername', { username, peerId: myUserId });
         document.getElementById('message').disabled = false;
         document.getElementById('message-input').querySelector('button').disabled = false;
@@ -113,10 +113,12 @@
       const userListElement = document.getElementById('user-list');
       userListElement.innerHTML = '';
       userList.forEach((user) => {
-        const li = document.createElement('li');
-        li.textContent = user.username;
-        li.onclick = () => startJitsiCall(user.peerId);
-        userListElement.appendChild(li);
+        if (user.peerId !== myUserId) {
+          const li = document.createElement('li');
+          li.textContent = user.username;
+          li.onclick = () => startJitsiCall(user.peerId);
+          userListElement.appendChild(li);
+        }
       });
     });
 
@@ -126,37 +128,43 @@
         alert('Veuillez d\'abord entrer un nom d\'utilisateur');
         return;
       }
-      // Créer un nom de salle unique basé sur les deux IDs
-      const roomName = `discord-call-${myUserId}-${remoteId}`;
+      if (api) {
+        api.dispose();
+        api = null;
+      }
+      // Créer un nom de salle unique basé sur les deux IDs (ordonné pour éviter les doublons)
+      const ids = [myUserId, remoteId].sort();
+      const roomName = `discord-call-${ids[0]}-${ids[1]}`;
       const domain = 'meet.jit.si';
       const options = {
         roomName: roomName,
-        width: '80%',
-        height: '80%',
         parentNode: document.getElementById('jitsi-iframe'),
         userInfo: {
           displayName: username
         },
         configOverwrite: {
           startWithAudioMuted: false,
-          disableModeratorIndicator: true
+          disableModeratorIndicator: true,
+          prejoinPageEnabled: false
         },
         interfaceConfigOverwrite: {
           filmStripOnly: false,
           TOOLBAR_BUTTONS: [
             'microphone', 'camera', 'closedcaptions', 'desktop', 'fullscreen',
-            'fodeviceselection', 'hangup', 'profile', 'chat', 'recording',
-            'livestreaming', 'etherpad', 'sharedvideo', 'shareaudio', 'settings', 'raisehand',
-            'videoquality', 'shortcuts', 'tileview', 'select-layout', 'help'
-          ]
+            'fodeviceselection', 'hangup', 'chat', 'settings', 'raisehand',
+            'videoquality', 'tileview'
+          ],
+          SHOW_JITSI_WATERMARK: false,
+          SHOW_WATERMARK_FOR_GUESTS: false
         },
         lang: 'fr'
       };
       api = new JitsiMeetExternalAPI(domain, options);
       document.getElementById('jitsi-container').style.display = 'block';
-      alert(`Appel lancé dans la salle: ${roomName}. Partagez ce lien avec votre ami: https://meet.jit.si/${roomName}`);
+      socket.emit('joinJitsiCall', { remoteId, roomName }); // Notifier l'autre utilisateur
     }
 
+    // Fermer l'appel Jitsi
     function closeJitsi() {
       if (api) {
         api.dispose();
@@ -165,17 +173,52 @@
       document.getElementById('jitsi-container').style.display = 'none';
     }
 
-    // Démarrer l'appel vocal (prépare le micro, mais utilise Jitsi pour l'appel)
+    // Recevoir une notification pour rejoindre un appel Jitsi
+    socket.on('joinJitsiCall', (data) => {
+      if (data.remoteId === myUserId) {
+        if (api) {
+          api.dispose();
+          api = null;
+        }
+        const domain = 'meet.jit.si';
+        const options = {
+          roomName: data.roomName,
+          parentNode: document.getElementById('jitsi-iframe'),
+          userInfo: {
+            displayName: username
+          },
+          configOverwrite: {
+            startWithAudioMuted: false,
+            disableModeratorIndicator: true,
+            prejoinPageEnabled: false
+          },
+          interfaceConfigOverwrite: {
+            filmStripOnly: false,
+            TOOLBAR_BUTTONS: [
+              'microphone', 'camera', 'closedcaptions', 'desktop', 'fullscreen',
+              'fodeviceselection', 'hangup', 'chat', 'settings', 'raisehand',
+              'videoquality', 'tileview'
+            ],
+            SHOW_JITSI_WATERMARK: false,
+            SHOW_WATERMARK_FOR_GUESTS: false
+          },
+          lang: 'fr'
+        };
+        api = new JitsiMeetExternalAPI(domain, options);
+        document.getElementById('jitsi-container').style.display = 'block';
+      }
+    });
+
+    // Tester l'accès au micro
     async function startVoiceCall() {
       if (!username) {
         alert('Veuillez d\'abord entrer un nom d\'utilisateur');
         return;
       }
       try {
-        // Test d'accès au micro (optionnel, Jitsi gère cela)
         const stream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
-        stream.getTracks().forEach(track => track.stop()); // Arrêter le stream après test
-        alert('Micro prêt. Cliquez sur un utilisateur pour lancer l\'appel avec Jitsi.');
+        stream.getTracks().forEach(track => track.stop());
+        alert('Micro prêt. Cliquez sur un utilisateur pour lancer un appel.');
       } catch (err) {
         console.error('Erreur lors de l\'accès au micro:', err);
         alert('Impossible d\'accéder au micro. Vérifiez les permissions ou branchez un micro.');
