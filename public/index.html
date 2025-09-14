@@ -3,534 +3,288 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Clone de Discord - Style Spotify</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.0/socket.io.js"></script>
-  <script src="https://meet.jit.si/external_api.js"></script>
-  <link href="https://fonts.cdnfonts.com/css/proxima-nova-2" rel="stylesheet">
+  <title>Chat Général et Appels - Style Spotify</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
   <style>
     body {
-      font-family: 'Proxima Nova', sans-serif;
-      margin: 0;
-      display: flex;
-      background: #121212;
-      color: #fff;
-      overflow: hidden;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background-color: #121212;
     }
-    #sidebar {
-      width: 240px;
-      background: #000000;
-      height: 100vh;
-      padding: 20px;
-      box-sizing: border-box;
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-    }
-    #sidebar h3 {
-      font-size: 16px;
-      color: #b3b3b3;
-      text-transform: uppercase;
-      margin: 10px 0;
-    }
-    #channels, #user-list {
-      list-style: none;
-      padding: 0;
-      margin: 0;
-    }
-    #channels li, #user-list li {
-      padding: 10px;
-      background: #181818;
-      margin: 5px 0;
-      border-radius: 4px;
-      cursor: pointer;
-      transition: background 0.2s, transform 0.1s;
-    }
-    #channels li:hover, #user-list li:hover {
-      background: #1DB954;
-      transform: translateX(5px);
-    }
-    #add-channel-button, #add-gif-button {
-      padding: 10px;
-      background: #1DB954;
-      border: none;
-      border-radius: 4px;
-      color: #fff;
-      cursor: pointer;
-      text-align: center;
-      transition: background 0.2s;
-    }
-    #add-channel-button:hover, #add-gif-button:hover {
-      background: #1ed760;
-    }
-    #chat {
-      flex-grow: 1;
-      background: #181818;
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
-    #username-container {
-      padding: 15px;
-      background: #121212;
-      border-bottom: 1px solid #282828;
-    }
-    #username-container input {
-      padding: 10px;
-      border: none;
-      border-radius: 4px;
-      background: #282828;
-      color: #fff;
-      width: 70%;
-      font-size: 14px;
-    }
-    #username-container button {
-      padding: 10px 20px;
-      background: #1DB954;
-      border: none;
-      border-radius: 4px;
-      color: #fff;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-    #username-container button:hover {
-      background: #1ed760;
-    }
-    #messages {
-      flex-grow: 1;
-      overflow-y: auto;
-      padding: 20px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-    #messages div {
-      background: #282828;
-      padding: 10px 15px;
-      border-radius: 4px;
-      max-width: 80%;
+    .message-bubble {
+      max-width: 70%;
       word-wrap: break-word;
     }
-    #messages img {
-      max-width: 200px;
-      border-radius: 4px;
-      margin-top: 5px;
+    .message-bubble.sent {
+      background-color: #1db954;
+      color: white;
     }
-    #message-input {
-      padding: 15px;
-      background: #121212;
-      border-top: 1px solid #282828;
-      display: flex;
-      gap: 10px;
-      align-items: center;
-    }
-    #message-input input {
-      flex-grow: 1;
-      padding: 10px;
-      border: none;
-      border-radius: 20px;
-      background: #282828;
-      color: #fff;
-      font-size: 14px;
-    }
-    #message-input button {
-      padding: 10px 20px;
-      background: #1DB954;
-      border: none;
-      border-radius: 20px;
-      color: #fff;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-    #message-input button:hover {
-      background: #1ed760;
-    }
-    #gif-picker {
-      display: none;
-      position: absolute;
-      bottom: 80px;
-      left: 20px;
-      width: 400px;
-      background: #181818;
-      border: 1px solid #282828;
-      border-radius: 8px;
-      padding: 10px;
-      z-index: 1000;
-    }
-    #gif-search {
-      width: 100%;
-      padding: 8px;
-      border: none;
-      border-radius: 4px;
-      background: #282828;
-      color: #fff;
-      margin-bottom: 10px;
-    }
-    #gif-results {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-      gap: 10px;
-      max-height: 200px;
-      overflow-y: auto;
-    }
-    #gif-results img {
-      width: 100%;
-      cursor: pointer;
-      border-radius: 4px;
-      transition: transform 0.2s;
-    }
-    #gif-results img:hover {
-      transform: scale(1.05);
-    }
-    #jitsi-container {
-      display: none;
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-      width: 400px;
-      height: 300px;
-      background: #000;
-      border: 2px solid #1DB954;
-      border-radius: 8px;
-      z-index: 1000;
-    }
-    #jitsi-iframe {
-      width: 100%;
-      height: 100%;
-      border: none;
-      border-radius: 8px;
-    }
-    #close-jitsi {
-      position: absolute;
-      top: -30px;
-      right: 0;
-      background: #ff0000;
-      color: #fff;
-      border: none;
-      padding: 5px 10px;
-      border-radius: 4px;
-      cursor: pointer;
-      z-index: 1001;
-      transition: background 0.2s;
-    }
-    #close-jitsi:hover {
-      background: #cc0000;
-    }
-    #voice-call-button {
-      padding: 10px;
-      background: #1DB954;
-      border: none;
-      border-radius: 4px;
-      color: #fff;
-      cursor: pointer;
-      text-align: center;
-      transition: background 0.2s;
-    }
-    #voice-call-button:hover {
-      background: #1ed760;
+    .message-bubble.received {
+      background-color: #2a2a2a;
+      color: white;
     }
   </style>
 </head>
 <body>
-  <div id="sidebar">
-    <h3>Salons</h3>
-    <ul id="channels">
-      <li onclick="joinChannel('general')">Général</li>
-      <li onclick="joinChannel('jeux')">Jeux</li>
-      <li onclick="joinChannel('musique')">Musique</li>
-    </ul>
-    <button id="add-channel-button" onclick="addChannel()">Ajouter un salon</button>
-    <h3>Utilisateurs</h3>
-    <ul id="user-list"></ul>
-    <button id="voice-call-button" onclick="startVoiceCall()">Démarrer Appel Vocal</button>
-  </div>
-  <div id="chat">
-    <div id="username-container">
-      <input type="text" id="username" placeholder="Entrez votre nom">
-      <button onclick="setUsername()">Confirmer</button>
+  <div class="flex flex-col h-screen bg-[#121212] text-white p-6">
+    <div class="flex items-center mb-4">
+      <h1 class="text-2xl font-bold">Chat Général</h1>
     </div>
-    <div id="messages"></div>
-    <div id="message-input">
-      <input type="text" id="message" placeholder="Tapez votre message..." disabled>
-      <button id="add-gif-button" onclick="toggleGifPicker()">GIF</button>
-      <button onclick="sendMessage()">Envoyer</button>
-      <div id="gif-picker">
-        <input type="text" id="gif-search" placeholder="Rechercher un GIF...">
-        <div id="gif-results"></div>
+    <div class="flex flex-col gap-4 mb-4">
+      <input id="username" placeholder="Ton pseudo" class="p-3 rounded-lg bg-[#2a2a2a] text-white border-none focus:ring-2 focus:ring-[#1db954]">
+      <button onclick="joinChat()" class="bg-[#1db954] text-black font-semibold p-3 rounded-lg hover:bg-[#1ed760] transition">Rejoindre</button>
+    </div>
+    <div class="flex-1 overflow-y-auto mb-4 bg-[#181818] rounded-lg p-4" id="messages"></div>
+    <div class="flex gap-2 mb-4">
+      <input id="message" placeholder="Ton message" class="flex-1 p-3 rounded-lg bg-[#2a2a2a] text-white border-none focus:ring-2 focus:ring-[#1db954]">
+      <button onclick="sendMessage()" class="bg-[#1db954] text-black font-semibold p-3 rounded-lg hover:bg-[#1ed760] transition">Envoyer</button>
+    </div>
+    <div class="flex flex-col gap-2 mb-4">
+      <select id="recipient" class="p-3 rounded-lg bg-[#2a2a2a] text-white border-none focus:ring-2 focus:ring-[#1db954]">
+        <option value="">Choisir un pote pour appeler</option>
+      </select>
+      <div class="flex gap-2">
+        <button onclick="startCall('video')" class="bg-[#1db954] text-black font-semibold p-3 rounded-lg hover:bg-[#1ed760] transition" id="callButton" disabled>Appel Vidéo</button>
+        <button onclick="startCall('screen')" class="bg-[#1db954] text-black font-semibold p-3 rounded-lg hover:bg-[#1ed760] transition" id="screenShareButton" disabled>Partager l'écran</button>
+        <button onclick="endCall()" class="bg-red-600 text-white font-semibold p-3 rounded-lg hover:bg-red-700 transition hidden" id="endCallButton">Terminer l'appel</button>
       </div>
     </div>
-  </div>
-
-  <!-- Conteneur pour Jitsi Meet -->
-  <div id="jitsi-container">
-    <button id="close-jitsi" onclick="closeJitsi()">Fermer l'appel</button>
-    <div id="jitsi-iframe"></div>
+    <div class="flex gap-2">
+      <video id="localVideo" autoplay muted class="w-1/2 h-64 bg-black rounded-lg"></video>
+      <video id="remoteVideo" autoplay class="w-1/2 h-64 bg-black rounded-lg"></video>
+    </div>
   </div>
 
   <script>
-    const socket = io();
-    let currentChannel = 'general';
-    let username;
-    let myUserId = null;
-    let api = null;
-    const TENOR_API_KEY = 'AIzaSyDMnGZE_KP4pEPjdS_QQ-B5PSALGmDLC9o'; // Remplace par ta clé API Tenor
+    let socket;
+    let localStream;
+    let peerConnection;
+    let username = '';
+    let recipientId = '';
+    const configuration = { 
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:openrelay.metered.ca:80' },
+        { 
+          urls: 'turn:openrelay.metered.ca:443',
+          username: 'openrelayproject',
+          credential: 'openrelayproject'
+        }
+      ] 
+    };
 
-    // Définir le nom d'utilisateur
-    function setUsername() {
+    function joinChat() {
+      console.log('joinChat appelé');
       username = document.getElementById('username').value;
-      if (username) {
-        myUserId = username.toLowerCase().replace(/\s+/g, '-');
-        socket.emit('setUsername', { username, peerId: myUserId });
-        document.getElementById('message').disabled = false;
-        document.getElementById('message-input').querySelector('button').disabled = false;
-        document.getElementById('username-container').style.display = 'none';
-        alert(`Votre ID pour les appels: ${myUserId}`);
-      }
-    }
-
-    // Ajouter un nouveau salon
-    function addChannel() {
       if (!username) {
-        alert('Veuillez d\'abord entrer un nom d\'utilisateur');
+        console.error('Erreur: Pseudo vide');
+        alert('Entre un pseudo !');
         return;
       }
-      const channelName = prompt('Entrez le nom du nouveau salon:');
-      if (channelName && channelName.trim()) {
-        const sanitizedChannel = channelName.trim().toLowerCase().replace(/\s+/g, '-');
-        socket.emit('addChannel', sanitizedChannel);
-      }
+      console.log('Connexion à Socket.IO avec pseudo:', username);
+      socket = io('http://localhost:3000', { 
+        query: { username },
+        transports: ['websocket', 'polling'],
+        timeout: 20000
+      });
+      
+      socket.on('connect', () => {
+        console.log('Connecté à Socket.IO ! ID:', socket.id);
+        document.getElementById('username').disabled = true;
+        document.getElementById('callButton').disabled = false;
+        document.getElementById('screenShareButton').disabled = false;
+        socket.emit('loadMessages');
+      });
+      
+      socket.on('connect_error', (error) => {
+        console.error('Erreur de connexion Socket.IO:', error.message);
+        alert('Erreur de connexion au serveur: ' + error.message);
+      });
+      
+      socket.on('disconnect', (reason) => {
+        console.log('Déconnexion Socket.IO:', reason);
+      });
+
+      socket.on('users', (users) => {
+        console.log('Liste des utilisateurs reçue:', users);
+        updateUsers(users);
+      });
+      
+      socket.on('messages', (messages) => {
+        console.log('Messages chargés:', messages);
+        messages.forEach(displayMessage);
+      });
+      
+      socket.on('message', (msg) => {
+        console.log('Message reçu:', msg);
+        displayMessage(msg);
+      });
+      
+      socket.on('offer', (data) => {
+        console.log('Offer WebRTC reçu de:', data.from);
+        handleOffer(data);
+      });
+      
+      socket.on('answer', (data) => {
+        console.log('Answer WebRTC reçu');
+        handleAnswer(data);
+      });
+      
+      socket.on('ice-candidate', (data) => {
+        console.log('ICE candidate reçu');
+        handleIceCandidate(data);
+      });
     }
 
-    // Rejoindre un salon
-    function joinChannel(channel) {
-      if (!username) {
-        alert('Veuillez d\'abord entrer un nom d\'utilisateur');
-        return;
-      }
-      currentChannel = channel;
-      socket.emit('joinChannel', channel);
-      document.getElementById('messages').innerHTML = '';
-      alert(`Vous avez rejoint le salon: ${channel}`);
+    function updateUsers(users) {
+      console.log('Mise à jour des utilisateurs:', users);
+      const recipientSelect = document.getElementById('recipient');
+      recipientSelect.innerHTML = '<option value="">Choisir un pote pour appeler</option>';
+      users.forEach(user => {
+        if (user.id !== socket.id) {
+          const option = document.createElement('option');
+          option.value = user.id;
+          option.textContent = user.name || user.username;
+          recipientSelect.appendChild(option);
+        }
+      });
+      recipientSelect.onchange = () => {
+        recipientId = recipientSelect.value;
+        document.getElementById('callButton').disabled = !recipientId;
+        document.getElementById('screenShareButton').disabled = !recipientId;
+        console.log('Pote sélectionné:', recipientId);
+      };
     }
 
-    // Envoyer un message
+    function displayMessage(msg) {
+      const messages = document.getElementById('messages');
+      const div = document.createElement('div');
+      div.textContent = `${msg.from}: ${msg.text}`;
+      div.className = `p-2 rounded-lg mb-2 message-bubble ${msg.from === username ? 'sent ml-auto' : 'received mr-auto'}`;
+      messages.appendChild(div);
+      messages.scrollTop = messages.scrollHeight;
+    }
+
     function sendMessage() {
-      const messageInput = document.getElementById('message');
-      const message = messageInput.value.trim();
+      const message = document.getElementById('message').value;
       if (message) {
-        socket.emit('chatMessage', {
-          message,
-          channel: currentChannel,
-          isGif: false
-        });
-        messageInput.value = '';
+        console.log('Envoi message général:', message);
+        socket.emit('message', { from: username, text: message });
+        document.getElementById('message').value = '';
+      } else {
+        console.error('Erreur: Message vide');
       }
     }
 
-    // Gérer la touche Entrée
+    async function startCall(type) {
+      recipientId = document.getElementById('recipient').value;
+      if (!recipientId) {
+        console.error('Erreur: Pas de pote sélectionné');
+        alert('Choisis un pote !');
+        return;
+      }
+      console.log(`Démarrage appel (${type}) vers:`, recipientId);
+
+      try {
+        if (type === 'screen') {
+          localStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+        } else {
+          localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        }
+        console.log('Accès média OK:', type);
+        document.getElementById('localVideo').srcObject = localStream;
+
+        peerConnection = new RTCPeerConnection(configuration);
+        localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+
+        peerConnection.ontrack = event => {
+          console.log('Stream remote reçu');
+          document.getElementById('remoteVideo').srcObject = event.streams[0];
+        };
+        
+        peerConnection.onicecandidate = event => {
+          if (event.candidate) {
+            console.log('Envoi ICE candidate');
+            socket.emit('ice-candidate', { to: recipientId, candidate: event.candidate });
+          }
+        };
+
+        const offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
+        console.log('Envoi offer WebRTC');
+        socket.emit('offer', { to: recipientId, offer });
+
+        document.getElementById('callButton').classList.add('hidden');
+        document.getElementById('screenShareButton').classList.add('hidden');
+        document.getElementById('endCallButton').classList.remove('hidden');
+      } catch (error) {
+        console.error('Erreur getUserMedia/getDisplayMedia:', error);
+        alert('Erreur accès média: ' + error.message);
+      }
+    }
+
+    async function handleOffer(data) {
+      console.log('Gestion offer de:', data.from);
+      if (!peerConnection) {
+        peerConnection = new RTCPeerConnection(configuration);
+        try {
+          localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+          document.getElementById('localVideo').srcObject = localStream;
+          localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+        } catch (error) {
+          console.error('Erreur getUserMedia dans handleOffer:', error);
+          return;
+        }
+        peerConnection.ontrack = event => {
+          document.getElementById('remoteVideo').srcObject = event.streams[0];
+        };
+        peerConnection.onicecandidate = event => {
+          if (event.candidate) {
+            socket.emit('ice-candidate', { to: data.from, candidate: event.candidate });
+          }
+        };
+      }
+      await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+      const answer = await peerConnection.createAnswer();
+      await peerConnection.setLocalDescription(answer);
+      socket.emit('answer', { to: data.from, answer });
+      document.getElementById('callButton').classList.add('hidden');
+      document.getElementById('screenShareButton').classList.add('hidden');
+      document.getElementById('endCallButton').classList.remove('hidden');
+    }
+
+    async function handleAnswer(data) {
+      await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+      console.log('Answer appliqué');
+    }
+
+    async function handleIceCandidate(data) {
+      await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+    }
+
+    function endCall() {
+      console.log('Fin d\'appel');
+      if (peerConnection) {
+        peerConnection.close();
+        peerConnection = null;
+      }
+      if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+        localStream = null;
+      }
+      document.getElementById('localVideo').srcObject = null;
+      document.getElementById('remoteVideo').srcObject = null;
+      document.getElementById('callButton').classList.remove('hidden');
+      document.getElementById('screenShareButton').classList.remove('hidden');
+      document.getElementById('endCallButton').classList.add('hidden');
+    }
+
     document.getElementById('message').addEventListener('keypress', (e) => {
       if (e.key === 'Enter') {
+        console.log('Touche Entrée pressée');
         sendMessage();
       }
     });
-
-    // Afficher/masquer le sélecteur de GIFs
-    function toggleGifPicker() {
-      const gifPicker = document.getElementById('gif-picker');
-      gifPicker.style.display = gifPicker.style.display === 'block' ? 'none' : 'block';
-      if (gifPicker.style.display === 'block') {
-        document.getElementById('gif-search').focus();
-        searchGifs('');
-      }
-    }
-
-    // Rechercher des GIFs via l'API Tenor
-    async function searchGifs(query) {
-      const gifResults = document.getElementById('gif-results');
-      gifResults.innerHTML = '';
-      try {
-        const response = await fetch(`https://api.tenor.com/v1/search?q=${encodeURIComponent(query)}&key=${TENOR_API_KEY}&limit=12`);
-        const data = await response.json();
-        data.results.forEach(gif => {
-          const img = document.createElement('img');
-          img.src = gif.media[0].tinygif.url;
-          img.alt = gif.title;
-          img.onclick = () => {
-            socket.emit('chatMessage', {
-              message: gif.media[0].gif.url,
-              channel: currentChannel,
-              isGif: true
-            });
-            toggleGifPicker();
-          };
-          gifResults.appendChild(img);
-        });
-      } catch (err) {
-        console.error('Erreur lors de la recherche de GIFs:', err);
-        alert('Erreur lors de la recherche de GIFs.');
-      }
-    }
-
-    // Gérer la recherche de GIFs
-    document.getElementById('gif-search').addEventListener('input', (e) => {
-      searchGifs(e.target.value);
-    });
-
-    // Recevoir les messages
-    socket.on('chatMessage', (data) => {
-      const messages = document.getElementById('messages');
-      const messageElement = document.createElement('div');
-      if (data.isGif) {
-        messageElement.innerHTML = `<strong>${data.user} (${data.timestamp}):</strong><br><img src="${data.message}" alt="GIF">`;
-      } else {
-        messageElement.innerHTML = `<strong>${data.user} (${data.timestamp}):</strong> ${data.message}`;
-      }
-      messages.appendChild(messageElement);
-      messages.scrollTop = messages.scrollHeight;
-    });
-
-    // Recevoir l'historique des messages
-    socket.on('messageHistory', (history) => {
-      const messages = document.getElementById('messages');
-      messages.innerHTML = '';
-      history.forEach((data) => {
-        const messageElement = document.createElement('div');
-        if (data.isGif) {
-          messageElement.innerHTML = `<strong>${data.user} (${data.timestamp}):</strong><br><img src="${data.message}" alt="GIF">`;
-        } else {
-          messageElement.innerHTML = `<strong>${data.user} (${data.timestamp}):</strong> ${data.message}`;
-        }
-        messages.appendChild(messageElement);
-      });
-      messages.scrollTop = messages.scrollHeight;
-    });
-
-    // Mettre à jour la liste des salons
-    socket.on('channelList', (channelList) => {
-      const channelsElement = document.getElementById('channels');
-      channelsElement.innerHTML = '';
-      channelList.forEach((channel) => {
-        const li = document.createElement('li');
-        li.textContent = channel;
-        li.onclick = () => joinChannel(channel);
-        channelsElement.appendChild(li);
-      });
-    });
-
-    // Mettre à jour la liste des utilisateurs
-    socket.on('userList', (userList) => {
-      const userListElement = document.getElementById('user-list');
-      userListElement.innerHTML = '';
-      userList.forEach((user) => {
-        if (user.peerId !== myUserId) {
-          const li = document.createElement('li');
-          li.textContent = user.username;
-          li.onclick = () => startJitsiCall(user.peerId);
-          userListElement.appendChild(li);
-        }
-      });
-    });
-
-    // Démarrer un appel vocal avec Jitsi Meet
-    function startJitsiCall(remoteId) {
-      if (!username) {
-        alert('Veuillez d\'abord entrer un nom d\'utilisateur');
-        return;
-      }
-      if (api) {
-        api.dispose();
-        api = null;
-      }
-      const ids = [myUserId, remoteId].sort();
-      const roomName = `discord-call-${ids[0]}-${ids[1]}`;
-      const domain = 'meet.jit.si';
-      const options = {
-        roomName: roomName,
-        parentNode: document.getElementById('jitsi-iframe'),
-        userInfo: {
-          displayName: username
-        },
-        configOverwrite: {
-          startWithAudioMuted: false,
-          disableModeratorIndicator: true,
-          prejoinPageEnabled: false
-        },
-        interfaceConfigOverwrite: {
-          filmStripOnly: false,
-          TOOLBAR_BUTTONS: [
-            'microphone', 'camera', 'closedcaptions', 'desktop', 'fullscreen',
-            'fodeviceselection', 'hangup', 'chat', 'settings', 'raisehand',
-            'videoquality', 'tileview'
-          ],
-          SHOW_JITSI_WATERMARK: false,
-          SHOW_WATERMARK_FOR_GUESTS: false
-        },
-        lang: 'fr'
-      };
-      api = new JitsiMeetExternalAPI(domain, options);
-      document.getElementById('jitsi-container').style.display = 'block';
-      socket.emit('joinJitsiCall', { remoteId, roomName });
-    }
-
-    // Fermer l'appel Jitsi
-    function closeJitsi() {
-      if (api) {
-        api.dispose();
-        api = null;
-      }
-      document.getElementById('jitsi-container').style.display = 'none';
-    }
-
-    // Recevoir une notification pour rejoindre un appel Jitsi
-    socket.on('joinJitsiCall', (data) => {
-      if (data.remoteId === myUserId) {
-        if (api) {
-          api.dispose();
-          api = null;
-        }
-        const domain = 'meet.jit.si';
-        const options = {
-          roomName: data.roomName,
-          parentNode: document.getElementById('jitsi-iframe'),
-          userInfo: {
-            displayName: username
-          },
-          configOverwrite: {
-            startWithAudioMuted: false,
-            disableModeratorIndicator: true,
-            prejoinPageEnabled: false
-          },
-          interfaceConfigOverwrite: {
-            filmStripOnly: false,
-            TOOLBAR_BUTTONS: [
-              'microphone', 'camera', 'closedcaptions', 'desktop', 'fullscreen',
-              'fodeviceselection', 'hangup', 'chat', 'settings', 'raisehand',
-              'videoquality', 'tileview'
-            ],
-            SHOW_JITSI_WATERMARK: false,
-            SHOW_WATERMARK_FOR_GUESTS: false
-          },
-          lang: 'fr'
-        };
-        api = new JitsiMeetExternalAPI(domain, options);
-        document.getElementById('jitsi-container').style.display = 'block';
-      }
-    });
-
-    // Tester l'accès au micro
-    async function startVoiceCall() {
-      if (!username) {
-        alert('Veuillez d\'abord entrer un nom d\'utilisateur');
-        return;
-      }
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
-        stream.getTracks().forEach(track => track.stop());
-        alert('Micro prêt. Cliquez sur un utilisateur pour lancer un appel.');
-      } catch (err) {
-        console.error('Erreur lors de l\'accès au micro:', err);
-        alert('Impossible d\'accéder au micro. Vérifiez les permissions ou branchez un micro.');
-      }
-    }
   </script>
 </body>
 </html>
