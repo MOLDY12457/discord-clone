@@ -55,6 +55,7 @@
 
   <script>
     const socket = io();
+    console.log('Tentative de connexion PeerJS à:', window.location.hostname + '/peer');
     const peer = new Peer({
       host: window.location.hostname,
       path: '/peer',
@@ -160,7 +161,7 @@
         alert('Micro activé. Cliquez sur un utilisateur pour appeler ou partagez votre ID.');
       } catch (err) {
         console.error('Erreur lors de l\'accès au micro:', err);
-        alert('Impossible d\'accéder au micro. Vérifiez les permissions ou branchez un micro.');
+        alert('Impossible d\'accès au micro. Vérifiez les permissions ou branchez un micro.');
       }
     }
 
@@ -176,7 +177,7 @@
           document.getElementById('video-container').style.display = 'block';
         } catch (err) {
           console.error('Erreur lors de l\'accès au micro:', err);
-          alert('Impossible d\'accéder au micro. Vérifiez les permissions ou branchez un micro.');
+          alert('Impossible d\'accès au micro. Vérifiez les permissions ou branchez un micro.');
           return;
         }
       }
