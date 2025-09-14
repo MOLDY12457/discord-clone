@@ -1,7 +1,6 @@
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
-const fs = require('fs').promises;
 const path = require('path');
 
 const app = express();
@@ -17,42 +16,6 @@ const io = new Server(server, {
 });
 
 app.use(express.static(path.join(__dirname, 'public')));
-
-const messagesFile = path.join(__dirname, 'messages.json');
-let isSaving = false;
-let messageQueue = [];
-
-async function saveMessages() {
-  if (isSaving) {
-    return new Promise(resolve => messageQueue.push(resolve));
-  }
-  isSaving = true;
-  try {
-    const messages = await loadMessages();
-    while (messageQueue.length > 0) {
-      const newMessage = await new Promise(resolve => resolve(messageQueue.shift().()));
-      messages.push(newMessage);
-    }
-    await fs.writeFile(messagesFile, JSON.stringify(messages, null, 2), 'utf8');
-    console.log('Messages sauvegardés:', messages.length);
-  } catch (err) {
-    console.error('Erreur sauvegarde messages:', err);
-  } finally {
-    isSaving = false;
-    if (messageQueue.length > 0) saveMessages();
-  }
-}
-
-async function loadMessages() {
-  try {
-    const data = await fs.readFile(messagesFile, 'utf8');
-    return JSON.parse(data) || [];
-  } catch (err) {
-    console.log('Fichier messages inexistant ou vide, création d\'un nouveau:', err);
-    await fs.writeFile(messagesFile, '[]', 'utf8');
-    return [];
-  }
-}
 
 let users = [];
 
@@ -71,25 +34,9 @@ io.on('connection', (socket) => {
   console.log('Users mis à jour:', users);
   io.emit('users', users);
 
-  socket.on('loadMessages', async () => {
-    try {
-      const messages = await loadMessages();
-      socket.emit('messages', messages);
-      console.log('Messages envoyés à', socket.id, ':', messages.length);
-    } catch (err) {
-      console.error('Erreur chargement messages:', err);
-    }
-  });
-
-  socket.on('message', async (msg) => {
+  socket.on('message', (msg) => {
     console.log('Message général de', msg.from, ':', msg.text);
-    try {
-      const newMessage = { from: msg.from, text: msg.text, timestamp: new Date().toISOString() };
-      io.emit('message', newMessage);
-      await saveMessages(newMessage);
-    } catch (err) {
-      console.error('Erreur gestion message:', err);
-    }
+    io.emit('message', { from: msg.from, text: msg.text });
   });
 
   socket.on('offer', ({ to, offer }) => {
