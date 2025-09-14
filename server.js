@@ -15,14 +15,17 @@ app.use(express.static('public'));
 
 const users = {};
 const channels = {};
-const messages = { // Stockage des messages par salon
+const messages = {
   general: [],
   jeux: [],
   musique: []
 };
+const channelList = ['general', 'jeux', 'musique'];
 
 io.on('connection', (socket) => {
   console.log('Nouvel utilisateur connecté:', socket.id);
+
+  socket.emit('channelList', channelList);
 
   socket.on('setUsername', ({ username, peerId }) => {
     users[socket.id] = { username, peerId };
@@ -34,7 +37,6 @@ io.on('connection', (socket) => {
     socket.join(channel);
     channels[socket.id] = channel;
     socket.emit('userList', Object.values(users));
-    // Envoyer l'historique des messages du salon
     socket.emit('messageHistory', messages[channel] || []);
   });
 
@@ -44,11 +46,19 @@ io.on('connection', (socket) => {
       user: users[socket.id]?.username || 'Anonyme',
       message: data.message,
       timestamp,
+      isGif: data.isGif || false
     };
-    // Sauvegarder le message dans le salon
     if (!messages[data.channel]) messages[data.channel] = [];
     messages[data.channel].push(messageData);
     io.to(data.channel).emit('chatMessage', messageData);
+  });
+
+  socket.on('addChannel', (channelName) => {
+    if (channelName && !channelList.includes(channelName)) {
+      channelList.push(channelName);
+      messages[channelName] = [];
+      io.emit('channelList', channelList);
+    }
   });
 
   socket.on('joinJitsiCall', (data) => {
